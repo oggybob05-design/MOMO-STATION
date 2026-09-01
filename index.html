@@ -507,4 +507,219 @@
 
   function renderOrderSummary(){
     const box = $("orderSummary");
-    let
+    let html = "";
+    Object.keys(cart).forEach(id=>{
+      const item = items.find(i=>i.id === id);
+      if(!item) return;
+      const lineTotal = item.sellPrice * cart[id];
+      html += `<div class="summary-item"><span>${escapeHtml(item.name)} × ${cart[id]}</span><span>${fmt(lineTotal)}</span></div>`;
+    });
+
+    const subtotal = cartSubtotal();
+    const grand = subtotal + deliveryFee;
+
+    html += `
+      <div class="summary-total-row"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
+      <div class="summary-total-row"><span>Delivery Fee</span><span>${deliveryFee === 0 ? "FREE" : fmt(deliveryFee)}</span></div>
+      <div class="summary-total-row grand"><span>Grand Total</span><span>${fmt(grand)}</span></div>
+    `;
+    box.innerHTML = html;
+  }
+
+  function validateForm(){
+    const name = $("custName").value.trim();
+    const phone = $("custPhone").value.trim();
+    const address = $("custAddress").value.trim();
+    const btn = $("confirmOrderBtn");
+    btn.disabled = !(name && phone && address);
+  }
+
+  function confirmOrder(){
+    const name = $("custName").value.trim();
+    const phone = $("custPhone").value.trim();
+    const address = $("custAddress").value.trim();
+    if(!name || !phone || !address) return;
+
+    const subtotal = cartSubtotal();
+    const grand = subtotal + deliveryFee;
+
+    let msg = `🍽️ *NEW ORDER - MOMO STATION*\n\n`;
+    msg += `👤 *Name:* ${name}\n`;
+    msg += `📞 *Phone:* ${phone}\n`;
+    msg += `📍 *Address/Table:* ${address}\n\n`;
+    msg += `🧾 *Order Items:*\n`;
+    Object.keys(cart).forEach(id=>{
+      const item = items.find(i=>i.id === id);
+      if(!item) return;
+      const lineTotal = item.sellPrice * cart[id];
+      msg += `- ${item.name} × ${cart[id]} = ₹${lineTotal}\n`;
+    });
+    msg += `\n💰 *Subtotal:* ₹${subtotal}\n`;
+    msg += `🚚 *Delivery Fee:* ${deliveryFee === 0 ? "FREE" : "₹" + deliveryFee}\n`;
+    msg += `✅ *Grand Total: ₹${grand}*\n\n`;
+    msg += `Thank you for ordering from MOMO STATION!`;
+
+    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  }
+
+  /* ---------- ADMIN: LOGIN ---------- */
+  function tryLogin(){
+    const email = $("loginEmail").value.trim();
+    const pass = $("loginPassword").value;
+    const errEl = $("loginError");
+
+    if(email === ADMIN_EMAIL && pass === ADMIN_PASSWORD){
+      isAdmin = true;
+      errEl.textContent = "";
+      $("loginEmail").value = "";
+      $("loginPassword").value = "";
+      closeOverlay("loginOverlay");
+      $("adminBar").classList.add("active");
+      $("avatarBtn").style.boxShadow = "0 0 0 3px #fff, 0 0 0 5px var(--whatsapp)";
+      renderMenu();
+    }else{
+      errEl.textContent = "Invalid email or password. Please try again.";
+    }
+  }
+
+  function logout(){
+    isAdmin = false;
+    $("adminBar").classList.remove("active");
+    $("avatarBtn").style.boxShadow = "none";
+    renderMenu();
+  }
+
+  /* ---------- ADMIN: ITEM CRUD ---------- */
+  function openAddItem(){
+    $("itemModalTitle").textContent = "Add New Item";
+    $("itemId").value = "";
+    $("itemName").value = "";
+    $("itemSellPrice").value = "";
+    $("itemOrigPrice").value = "";
+    $("itemImage").value = "";
+    $("itemError").textContent = "";
+    openOverlay("itemOverlay");
+  }
+
+  function openEditItem(id){
+    const item = items.find(i=>i.id === id);
+    if(!item) return;
+    $("itemModalTitle").textContent = "Edit Item";
+    $("itemId").value = item.id;
+    $("itemName").value = item.name;
+    $("itemSellPrice").value = item.sellPrice;
+    $("itemOrigPrice").value = item.origPrice || "";
+    $("itemImage").value = item.image;
+    $("itemError").textContent = "";
+    openOverlay("itemOverlay");
+  }
+
+  function saveItem(){
+    const id = $("itemId").value;
+    const name = $("itemName").value.trim();
+    const sellPrice = Number($("itemSellPrice").value);
+    const origPrice = Number($("itemOrigPrice").value) || 0;
+    const image = $("itemImage").value.trim();
+    const errEl = $("itemError");
+
+    if(!name || !sellPrice || !image){
+      errEl.textContent = "Please fill Name, Selling Price and Image URL.";
+      return;
+    }
+
+    if(id){
+      const item = items.find(i=>i.id === id);
+      if(item){
+        item.name = name;
+        item.sellPrice = sellPrice;
+        item.origPrice = origPrice;
+        item.image = image;
+      }
+    }else{
+      items.push({
+        id: "item_" + Date.now(),
+        name, sellPrice, origPrice, image
+      });
+    }
+    saveItems();
+    closeOverlay("itemOverlay");
+    renderMenu();
+  }
+
+  function deleteItem(id){
+    if(!confirm("Delete this item from the menu?")) return;
+    items = items.filter(i => i.id !== id);
+    delete cart[id];
+    saveItems();
+    renderMenu();
+    updateFloatBar();
+  }
+
+  /* ---------- ADMIN: DELIVERY FEE ---------- */
+  function openDeliveryModal(){
+    $("deliveryInput").value = deliveryFee;
+    openOverlay("deliveryOverlay");
+  }
+  function saveDelivery(){
+    const val = Number($("deliveryInput").value);
+    deliveryFee = isNaN(val) || val < 0 ? 0 : val;
+    saveDeliveryFee();
+    closeOverlay("deliveryOverlay");
+  }
+
+  /* ---------- EVENT BINDINGS ---------- */
+  function bindEvents(){
+    $("avatarBtn").addEventListener("click", ()=>{
+      if(isAdmin) return; // already logged in
+      openOverlay("loginOverlay");
+    });
+    $("loginSubmit").addEventListener("click", tryLogin);
+    $("logoutBtn").addEventListener("click", logout);
+    $("addItemBtn").addEventListener("click", openAddItem);
+    $("editDeliveryBtn").addEventListener("click", openDeliveryModal);
+
+    $("itemSave").addEventListener("click", saveItem);
+    $("itemCancel").addEventListener("click", ()=> closeOverlay("itemOverlay"));
+    $("deliverySave").addEventListener("click", saveDelivery);
+
+    document.querySelectorAll("[data-close]").forEach(el=>{
+      el.addEventListener("click", ()=> closeOverlay(el.getAttribute("data-close")));
+    });
+    document.querySelectorAll(".overlay").forEach(ov=>{
+      ov.addEventListener("click", (e)=>{
+        if(e.target === ov) ov.classList.remove("active");
+      });
+    });
+
+    $("nextBtn").addEventListener("click", goToCheckout);
+    $("backToMenu").addEventListener("click", backToMenu);
+    $("confirmOrderBtn").addEventListener("click", confirmOrder);
+
+    ["custName","custPhone","custAddress"].forEach(id=>{
+      $(id).addEventListener("input", validateForm);
+    });
+
+    $("waFloat").addEventListener("click", ()=>{
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi! I have a question about MOMO STATION.")}`, "_blank");
+    });
+
+    // Enter key on login
+    $("loginPassword").addEventListener("keydown", e=>{ if(e.key === "Enter") tryLogin(); });
+  }
+
+  /* ---------- INIT ---------- */
+  function init(){
+    loadState();
+    bindEvents();
+    renderMenu();
+    updateFloatBar();
+    $("year").textContent = new Date().getFullYear();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+
+</body>
+</html>
