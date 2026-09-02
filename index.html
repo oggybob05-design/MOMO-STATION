@@ -720,6 +720,28 @@
   document.addEventListener("DOMContentLoaded", init);
 })();
 </script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCAKtPFiwOCqKn8mw8k3OnCf13o57R5SBw",
+    authDomain: "momo-station-fbc5e.firebaseapp.com",
+    projectId: "momo-station-fbc5e",
+    storageBucket: "momo-station-fbc5e.firebasestorage.app",
+    messagingSenderId: "67588439346",
+    appId: "1:67588439346:web:5bf55965ac0dedc651eb2b",
+    measurementId: "G-6BFWEB1T1M"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 </body>
 </html>
